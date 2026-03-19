@@ -32,6 +32,18 @@ static double elapsed_ms(std::chrono::high_resolution_clock::time_point start) {
         std::chrono::high_resolution_clock::now() - start).count();
 }
 
+// Check whether the current architecture provides native hardware support for
+// lock-free atomic operations.  std::atomic<Node*>::is_always_lock_free is a
+// C++17 compile-time constant that is true only when the platform guarantees
+// lock-free atomics without any software-emulation fallback.
+void check_hw_lock_support() {
+    if (std::atomic<Node*>::is_always_lock_free) {
+        std::cout << "hw lock support: available on this architecture" << std::endl;
+    } else {
+        std::cout << "hw lock support: NOT available on this architecture (atomic ops will be emulated in software)" << std::endl;
+    }
+}
+
 void test_unprotected() {
     Node* head = nullptr;
     std::vector<std::thread> threads;
@@ -107,6 +119,7 @@ void test_hw_locks() {
 }
 
 int main() {
+    check_hw_lock_support();
     test_unprotected();
     test_sw_locks();
     test_hw_locks();
