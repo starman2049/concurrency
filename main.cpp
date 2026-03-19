@@ -3,6 +3,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <chrono>
 
 static const int NUM_THREADS = 4;
 static const int NUM_INCREMENTS = 100000;
@@ -25,9 +26,17 @@ int count_and_free(Node* head) {
     return count;
 }
 
+// Return milliseconds elapsed since the given start point.
+static double elapsed_ms(std::chrono::high_resolution_clock::time_point start) {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::high_resolution_clock::now() - start).count();
+}
+
 void test_unprotected() {
     Node* head = nullptr;
     std::vector<std::thread> threads;
+    // Time the full operation including thread creation and joining.
+    auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < NUM_THREADS; ++i) {
         threads.emplace_back([&head]() {
             for (int j = 0; j < NUM_INCREMENTS; ++j) {
@@ -38,15 +47,19 @@ void test_unprotected() {
     for (auto& t : threads) {
         t.join();
     }
+    double ms = elapsed_ms(start);
     int count = count_and_free(head);
     std::cout << "test_unprotected: list size = " << count
-              << " (expected " << NUM_THREADS * NUM_INCREMENTS << ")" << std::endl;
+              << " (expected " << NUM_THREADS * NUM_INCREMENTS << ")"
+              << ", time = " << ms << " ms" << std::endl;
 }
 
 void test_sw_locks() {
     Node* head = nullptr;
     std::mutex mtx;
     std::vector<std::thread> threads;
+    // Time the full operation including thread creation and joining.
+    auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < NUM_THREADS; ++i) {
         threads.emplace_back([&head, &mtx]() {
             for (int j = 0; j < NUM_INCREMENTS; ++j) {
@@ -58,14 +71,18 @@ void test_sw_locks() {
     for (auto& t : threads) {
         t.join();
     }
+    double ms = elapsed_ms(start);
     int count = count_and_free(head);
     std::cout << "test_sw_locks:     list size = " << count
-              << " (expected " << NUM_THREADS * NUM_INCREMENTS << ")" << std::endl;
+              << " (expected " << NUM_THREADS * NUM_INCREMENTS << ")"
+              << ", time = " << ms << " ms" << std::endl;
 }
 
 void test_hw_locks() {
     std::atomic<Node*> head{nullptr};
     std::vector<std::thread> threads;
+    // Time the full operation including thread creation and joining.
+    auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < NUM_THREADS; ++i) {
         threads.emplace_back([&head]() {
             for (int j = 0; j < NUM_INCREMENTS; ++j) {
@@ -82,9 +99,11 @@ void test_hw_locks() {
     for (auto& t : threads) {
         t.join();
     }
+    double ms = elapsed_ms(start);
     int count = count_and_free(head.load());
     std::cout << "test_hw_locks:     list size = " << count
-              << " (expected " << NUM_THREADS * NUM_INCREMENTS << ")" << std::endl;
+              << " (expected " << NUM_THREADS * NUM_INCREMENTS << ")"
+              << ", time = " << ms << " ms" << std::endl;
 }
 
 int main() {
